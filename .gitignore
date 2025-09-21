@@ -221,3 +221,13 @@ outputs/
 # Keep generated diagrams
 !*.png
 !*.svg
+
+# Startup-Analyst cache
+Startup-Analyst/.cache/
+Startup-Analyst/outputs/logs/
+Startup-Analyst/outputs/notes/
+
+# Temporary files
+*.tmp
+*.temp
+raw_llm_response.json
