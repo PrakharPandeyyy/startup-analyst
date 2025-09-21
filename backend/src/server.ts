@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { agentsRouter } from "./api/agents";
+// import { agentsRouter } from "./api/agents";
 import { botsRouter } from "./api/bots";
 import { usersRouter } from "./api/users";
 import { companiesRouter } from "./api/companies";
@@ -20,7 +20,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Routes
-app.use("/v1/agents", agentsRouter);
+// app.use("/v1/agents", agentsRouter);
 app.use("/v1/bots", botsRouter);
 app.use("/v1/users", usersRouter);
 app.use("/v1/companies", companiesRouter);
