@@ -1,5 +1,0 @@
-runtime: python39
-entrypoint: gunicorn -b :$PORT startup_chatbot_server:app
-
-env_variables:
-  PYTHONPATH: /app:/app/Startup-Analyst:/app/Startup-Chatbot
