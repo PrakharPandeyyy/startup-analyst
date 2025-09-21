@@ -1,0 +1,607 @@
+openapi: 3.1.0
+info:
+  title: Analyst Backend API
+  version: 0.1.0
+  description: API for startup ingestion, questionnaires, final analysis, and bots.
+servers:
+  - url: https://api.example.com
+    description: Production
+  - url: http://localhost:8080
+    description: Local
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    StartupCreateRequest:
+      type: object
+      required: [name, category]
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        category: { type: string }
+        stage: { type: string }
+        geography: { type: string }
+        website: { type: string }
+        founders:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              role: { type: string }
+              linkedin: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+    Startup:
+      allOf:
+        - $ref: "#/components/schemas/StartupCreateRequest"
+        - type: object
+          properties:
+            id: { type: string }
+    SignedUrlRequest:
+      type: object
+      required: [startupId, fileName, contentType, sizeBytes]
+      properties:
+        startupId: { type: string }
+        fileName: { type: string }
+        contentType: { type: string }
+        sizeBytes: { type: integer }
+    SignedUrlResponse:
+      type: object
+      properties:
+        uploadUrl: { type: string }
+        gcsUri: { type: string }
+        uploadId: { type: string }
+    ConfirmUploadResponse:
+      type: object
+      properties:
+        jobId: { type: string }
+        status: { type: string, enum: [queued] }
+    Note:
+      type: object
+      properties:
+        id: { type: string }
+        startupId: { type: string }
+        version: { type: integer }
+        schemaVersion: { type: string }
+        source: { type: string }
+        summary: { type: string }
+        status: { type: string, enum: [pending, ready, failed] }
+        json:
+          { description: Raw payload, type: object, additionalProperties: true }
+        jsonRef: { type: string }
+    Questionnaire:
+      type: object
+      properties:
+        id: { type: string }
+        startupId: { type: string }
+        noteId: { type: string }
+        version: { type: integer }
+        schemaVersion: { type: string }
+        questions:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              text: { type: string }
+              category: { type: string }
+              type: { type: string }
+        status: { type: string, enum: [pending, ready, failed] }
+    FounderAnswersRequest:
+      type: object
+      required: [startupId, answers]
+      properties:
+        startupId: { type: string }
+        answers:
+          type: array
+          items:
+            type: object
+            properties:
+              questionId: { type: string }
+              text: { type: string }
+              evidence: { type: object, additionalProperties: true }
+        transcriptUri: { type: string }
+    FounderAnswersResponse:
+      type: object
+      properties:
+        answerId: { type: string }
+        status: { type: string, enum: [complete] }
+    FinalNote:
+      type: object
+      properties:
+        id: { type: string }
+        startupId: { type: string }
+        noteId: { type: string }
+        questionnaireId: { type: string }
+        founderAnswersId: { type: string }
+        version: { type: integer }
+        schemaVersion: { type: string }
+        scorecard: { type: object, additionalProperties: true }
+        risks:
+          { type: array, items: { type: object, additionalProperties: true } }
+        benchmarks: { type: object, additionalProperties: true }
+        recommendation: { type: string }
+        json: { type: object, additionalProperties: true }
+        jsonRef: { type: string }
+        status: { type: string, enum: [pending, ready, failed] }
+paths:
+  /v1/health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+  /v1/me:
+    get:
+      summary: Current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { type: object, additionalProperties: true }
+  /v1/startups:
+    post:
+      summary: Create startup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StartupCreateRequest" }
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  startupId: { type: string }
+        "400":
+          {
+            description: Bad request,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+  /v1/startups/{id}:
+    get:
+      summary: Get startup
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Startup
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Startup" }
+        "404":
+          {
+            description: Not found,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+  /v1/startups/{id}/summary:
+    get:
+      summary: Get startup summary
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  name: { type: string }
+                  category: { type: string }
+                  stage: { type: string }
+                  geography: { type: string }
+        "404":
+          {
+            description: Not found,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+  /v1/startups/{id}/status:
+    get:
+      summary: Ingestion status (placeholder)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+  /v1/startups/{id}/notes:
+    get:
+      summary: List notes for startup
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Notes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Note" }
+  /v1/startups/{id}/final-note:
+    get:
+      summary: Get latest final note for startup
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Final note
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FinalNote" }
+        "404":
+          {
+            description: Not found,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+  /v1/uploads/pitch:url:
+    post:
+      summary: Get signed URL for pitch upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SignedUrlRequest" }
+      responses:
+        "200":
+          description: Signed URL details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SignedUrlResponse" }
+        "400":
+          {
+            description: Bad request,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+  /v1/uploads/{uploadId}:confirm:
+    post:
+      summary: Confirm upload and queue ingestion
+      parameters:
+        - in: path
+          name: uploadId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConfirmUploadResponse" }
+        "404":
+          {
+            description: Not found,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+  /v1/agents/ingestion:run:
+    post:
+      summary: Run ingestion (stub)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                startupId: { type: string }
+                gcsUri: { type: string }
+              required: [startupId]
+      responses:
+        "200":
+          description: Note created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  noteId: { type: string }
+                  status: { type: string }
+  /v1/notes/by-startup/{startupId}:
+    get:
+      summary: List notes by startup
+      parameters:
+        - in: path
+          name: startupId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Notes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Note" }
+  /v1/notes/{noteId}:
+    get:
+      summary: Get note by id
+      parameters:
+        - in: path
+          name: noteId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Note
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Note" }
+        "404":
+          {
+            description: Not found,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+  /v1/questionnaires/generate:
+    post:
+      summary: Generate questionnaire (stub)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                startupId: { type: string }
+                noteId: { type: string }
+              required: [startupId]
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  questionnaireId: { type: string }
+                  status: { type: string }
+  /v1/questionnaires/by-startup/{startupId}:
+    get:
+      summary: List questionnaires by startup
+      parameters:
+        - in: path
+          name: startupId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Questionnaires
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Questionnaire" }
+  /v1/questionnaires/{id}:
+    get:
+      summary: Get questionnaire by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Questionnaire
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Questionnaire" }
+        "404":
+          {
+            description: Not found,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+  /v1/questionnaires/{id}/answers:
+    post:
+      summary: Submit founder answers
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FounderAnswersRequest" }
+      responses:
+        "200":
+          description: Stored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FounderAnswersResponse" }
+  /v1/final-notes/generate:
+    post:
+      summary: Generate final note (stub)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                startupId: { type: string }
+                noteId: { type: string }
+                questionnaireId: { type: string }
+                founderAnswersId: { type: string }
+              required: [startupId]
+      responses:
+        "200":
+          description: Final note created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  finalNoteId: { type: string }
+                  status: { type: string }
+  /v1/final-notes/by-startup/{startupId}:
+    get:
+      summary: Get latest final note by startup
+      parameters:
+        - in: path
+          name: startupId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Final note
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FinalNote" }
+        "404":
+          {
+            description: Not found,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+  /v1/final-notes/{id}:
+    get:
+      summary: Get final note by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: FinalNote
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FinalNote" }
+        "404":
+          {
+            description: Not found,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Error" } },
+              },
+          }
+  /v1/bots/screener/session:
+    post:
+      summary: Start screener session (stub)
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId: { type: string }
+  /v1/bots/screener/{sessionId}/message:
+    post:
+      summary: Send screener message (stub)
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: { type: string }
+      responses:
+        "200":
+          description: Reply
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId: { type: string }
+                  reply: { type: string }

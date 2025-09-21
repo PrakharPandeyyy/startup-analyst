@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install --no-cache-dir boto3 PyPDF2 flask
+
+# Copy the application code
+COPY Startup-Chatbot/ .
+
+# Create notes directory
+RUN mkdir -p notes
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+
+# Create a simple HTTP server to wrap the chatbots
+COPY agents-python/server/chatbot_server.py .
+
+# Expose the port
+EXPOSE 8001
+
+# Run the server
+CMD ["python", "chatbot_server.py"] 

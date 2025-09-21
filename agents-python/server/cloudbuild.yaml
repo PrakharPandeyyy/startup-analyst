@@ -1,0 +1,47 @@
+steps:
+  # Build the chatbot server image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/${PROJECT_ID}/agents/startup-chatbot-server:latest', '-f', 'agents-python/server/Dockerfile', '--build-arg', 'SERVER_FILE=startup_chatbot_server.py', '.']
+
+  # Push the chatbot image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/${PROJECT_ID}/agents/startup-chatbot-server:latest']
+
+  # Deploy the chatbot server to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'startup-chatbot-server'
+      - '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/agents/startup-chatbot-server:latest'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+
+  # Build the analyst server image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/${PROJECT_ID}/agents/startup-analyst-server:latest', '-f', 'agents-python/server/Dockerfile', '--build-arg', 'SERVER_FILE=startup_analyst_server.py', '.']
+
+  # Push the analyst image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/${PROJECT_ID}/agents/startup-analyst-server:latest']
+
+  # Deploy the analyst server to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'startup-analyst-server'
+      - '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/agents/startup-analyst-server:latest'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+
+images:
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/agents/startup-chatbot-server:latest'
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/agents/startup-analyst-server:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

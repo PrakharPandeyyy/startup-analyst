@@ -1,0 +1,19 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the Startup-Chatbot directory from the parent directory
+COPY ../Startup-Chatbot ./Startup-Chatbot
+
+# Copy the server
+COPY real_chatbot_server.py .
+
+EXPOSE 8080
+
+CMD ["python", "real_chatbot_server.py"]

@@ -1,0 +1,23 @@
+# LLM + Google
+google-generativeai>=0.8.0
+google-cloud-aiplatform>=1.66.0  # you already use this for Vertex embeddings
+
+# LangChain stack
+langchain>=0.2.2
+langchain-community>=0.2.2
+langchain-text-splitters>=0.2.0
+faiss-cpu>=1.7.4
+sentence-transformers>=2.2.2
+
+# loaders / parsing
+pypdf>=4.0.0
+PyMuPDF>=1.23.0
+pdfplumber>=0.10.3
+docx2txt>=0.8
+unstructured>=0.14.0
+
+# web/robustness
+requests>=2.31.0
+tenacity>=8.2.2
+json5>=0.9.14
+tqdm>=4.66.0

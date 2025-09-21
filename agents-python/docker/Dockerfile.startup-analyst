@@ -1,0 +1,25 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY Startup-Analyst/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the application code
+COPY Startup-Analyst/ .
+
+# Create output directories
+RUN mkdir -p outputs/logs outputs/notes
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+
+# Create a simple HTTP server to wrap the agent
+COPY agents-python/server/startup_analyst_server.py .
+
+# Expose the port
+EXPOSE 8000
+
+# Run the server
+CMD ["python", "startup_analyst_server.py"] 
