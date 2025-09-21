@@ -3,6 +3,7 @@ import {
   colSessions,
   colMessages,
   colFinalNotes,
+  colDealNotes,
 } from "../integrations/firestore";
 import { Timestamp } from "@google-cloud/firestore";
 import axios from "axios";
@@ -57,6 +58,30 @@ async function saveMessage(
   }
 }
 
+// Helper to get deal note by startup ID
+async function getDealNoteByStartupId(startupId: string) {
+  try {
+    const dealNotesQuery = await colDealNotes()
+      .where("startupId", "==", startupId)
+      .orderBy("createdAt", "desc")
+      .limit(1)
+      .get();
+
+    if (dealNotesQuery.empty) {
+      return null;
+    }
+
+    const dealNoteDoc = dealNotesQuery.docs[0];
+    return {
+      id: dealNoteDoc.id,
+      ...dealNoteDoc.data()
+    };
+  } catch (error) {
+    console.error("Error getting deal note by startup ID:", error);
+    return null;
+  }
+}
+
 // POST /v1/bots/screener/:sessionId/message
 botsRouter.post(
   "/screener/:sessionId/message",
@@ -105,19 +130,44 @@ botsRouter.post(
   async (req: Request, res: Response) => {
     try {
       const { sessionId } = req.params;
-      const { text, dealNoteId } = req.body || {};
+      const { text, startupId, dealNoteId } = req.body || {};
 
       if (!text) return res.status(400).json({ error: "text_required" });
 
       // Save user message
       await saveMessage(sessionId, "user", text);
 
+      let finalDealNoteId = dealNoteId;
+
+      // If startupId is provided, get the deal note ID automatically
+      if (startupId && !dealNoteId) {
+        console.log(`Getting deal note for startup: ${startupId}`);
+        const dealNote = await getDealNoteByStartupId(startupId);
+        if (dealNote) {
+          finalDealNoteId = dealNote.id;
+          console.log(`Found deal note ID: ${finalDealNoteId}`);
+        } else {
+          console.log(`No deal note found for startup: ${startupId}`);
+          return res.status(404).json({ 
+            error: "deal_note_not_found",
+            message: `No deal note found for startup ${startupId}` 
+          });
+        }
+      }
+
+      if (!finalDealNoteId) {
+        return res.status(400).json({ 
+          error: "deal_note_id_required",
+          message: "Either dealNoteId or startupId must be provided" 
+        });
+      }
+
       // Call the agent server directly
       try {
         const response = await axios.post(`${env.agentBaseUrl}/api/bots/deep-dive`, {
           message: text,
           sessionId: sessionId,
-          dealNoteId: dealNoteId
+          dealNoteId: finalDealNoteId
         });
 
         const reply = response.data.reply || "I'm sorry, I couldn't process your request.";
